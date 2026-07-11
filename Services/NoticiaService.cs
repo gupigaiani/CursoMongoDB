@@ -184,5 +184,31 @@ namespace CursoMongoDB.Services
                 }
             }
         }
+
+        public async Task RemoverNoticiasComUrlDuplicadaAsync()
+        {
+            var documentos = await _colecao.Find(FilterDefinition<BsonDocument>.Empty).ToListAsync();
+            var urlsVistas = new HashSet<string>();
+            int removidos = 0;
+            foreach (var doc in documentos)
+            {
+                if (!doc.Contains("Url") || doc["Url"].IsBsonNull || doc["Url"].BsonType != BsonType.String)
+                    continue;
+
+                string url = doc["Url"].AsString;
+
+                if (urlsVistas.Contains(url))
+                {
+                    var filtro = Builders<BsonDocument>.Filter.Eq("_id", doc["_id"]);
+                    await _colecao.DeleteOneAsync(filtro);
+                    Console.WriteLine($"Documento com URL duplicada removido: {url}");
+                    removidos++;
+                }
+                else
+                {
+                    urlsVistas.Add(url);
+                }
+            }
+        }
     }
 }
