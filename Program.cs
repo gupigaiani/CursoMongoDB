@@ -1,7 +1,7 @@
 ﻿using CursoMongoDB.Programs;
 class Program
 {
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
         // Program_2_4.Executar();
         // Program_2_5.Executar();
@@ -11,6 +11,18 @@ class Program
         // Program_3_5.Executar();
         // Program_4_1.Executar();
         // Program_4_2.Executar();
-        Program_4_3.Executar();
+        // Program_4_3.Executar();
+        // Program_4_4a.Executar();
+
+        var tarefa = Program_4_4b.ExecutarAsync();
+
+        for (int i = 1; i <= 15; i++)
+        {
+            Console.WriteLine($"Contador: {i}");
+            Thread.Sleep(1000);
+        }
+        
+        await tarefa;
+        Console.WriteLine("Depois do processo");
     }
 }
