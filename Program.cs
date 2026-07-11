@@ -24,6 +24,8 @@ class Program
         // Console.WriteLine("Depois do processo");
 
         // await Program_4_5a.ExecutarAsync();
-        await Program_4_5b.ExecutarAsync();
+        // await Program_4_5b.ExecutarAsync();
+        // await Program_5_2a.ExecutarAsync();
+        await Program_5_2b.ExecutarAsync();
     }
 }
