@@ -1,10 +1,25 @@
 using Newtonsoft.Json;
 using MongoDB.Bson;
+using System.Text;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace CursoMongoDB.Models;
+
 public class NoticiaClass
 {
-    public string Titulo { get; set; }
+    // public string Titulo { get; set; }
+    private string _titulo;
+    public string Titulo
+    {
+        get => _titulo;
+        set
+        {
+            _titulo = value;
+            Url = GerarUrl(value);
+        }
+    }
+    public string Url { get; set; }
     public string Texto { get; set; }
     public DateTime DataPublicacao { get; set; }
     public List<string> Tags { get; set; }
@@ -23,6 +38,29 @@ public class NoticiaClass
     public BsonDocument ToBson()
     {
         return this.ToBsonDocument();
+    }
+
+    private static string GerarUrl(string titulo)
+    {
+        if (string.IsNullOrWhiteSpace(titulo))
+            return string.Empty;
+
+        // Remove acentos
+        string url = titulo.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder();
+        foreach (var c in url)
+        {
+            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        url = sb.ToString().Normalize(NormalizationForm.FormC);
+
+        // Substitui espaços por underline, deixa minúsculo e remove caracteres especiais
+        url = url.Replace(' ', '_').ToLowerInvariant();
+        url = Regex.Replace(url, @"[^a-z0-9_]", "");
+
+        return url;
     }
 }
 
