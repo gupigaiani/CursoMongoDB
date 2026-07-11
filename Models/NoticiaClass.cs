@@ -3,12 +3,17 @@ using MongoDB.Bson;
 using System.Text;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace CursoMongoDB.Models;
 
 public class NoticiaClass
 {
     // public string Titulo { get; set; }
+    
+    [BsonId]
+    [JsonIgnore]
+    public ObjectId Id { get; set; }
     private string _titulo;
     public string Titulo
     {
