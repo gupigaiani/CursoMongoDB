@@ -493,7 +493,7 @@ namespace CursoMongoDB.Services
                     BsonSerializer.SerializerRegistry
                 )
             );
-            
+
             var pipeline = new[]
             {
                 new BsonDocument("$match", filtroBson), // filtroFinal pode ser um FilterDefinition<BsonDocument>
@@ -515,6 +515,59 @@ namespace CursoMongoDB.Services
             }
 
             return (totalGostei, totalNaoGostei);
+        }
+
+        public async Task<(long TotalVisualizacoes, double MediaGostei, long MaxVisualizacoes, long MinVisualizacoes, double AprovacaoRelativa)> ObterEstatisticasNoticiasAsync(DateTime inicio, DateTime fim)
+        {
+            var filtro = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Gte("DataPublicacao", inicio),
+                Builders<BsonDocument>.Filter.Lt("DataPublicacao", fim)
+            );
+
+            var filtroBson = filtro.Render(
+                new MongoDB.Driver.RenderArgs<BsonDocument>(
+                    BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+                    BsonSerializer.SerializerRegistry
+                )
+            );
+
+            var pipeline = new[]
+            {
+                new BsonDocument("$match", filtroBson),
+                new BsonDocument("$addFields", new BsonDocument("AprovacaoRelativa",
+                    new BsonDocument("$cond", new BsonArray
+                    {
+                        new BsonDocument("$eq", new BsonArray { "$Visualizacoes", 0 }),
+                        0,
+                        new BsonDocument("$divide", new BsonArray { "$Gostei", "$Visualizacoes" })
+                    })
+                )),
+                new BsonDocument("$group", new BsonDocument
+                {
+                    { "_id", BsonNull.Value },
+                    { "TotalVisualizacoes", new BsonDocument("$sum", "$Visualizacoes") },
+                    { "MediaGostei", new BsonDocument("$avg", "$Gostei") },
+                    { "MaxVisualizacoes", new BsonDocument("$max", "$Visualizacoes") },
+                    { "MinVisualizacoes", new BsonDocument("$min", "$Visualizacoes") },
+                    { "MediaAprovacaoRelativa", new BsonDocument("$avg", "$AprovacaoRelativa") }
+                })
+            };
+
+            var resultado = await _colecao.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+            if (resultado != null)
+            {
+                long totalVisualizacoes = resultado.GetValue("TotalVisualizacoes", 0).ToInt64();
+                double mediaGostei = resultado.GetValue("MediaGostei", 0).ToDouble();
+                long maxVisualizacoes = resultado.GetValue("MaxVisualizacoes", 0).ToInt64();
+                long minVisualizacoes = resultado.GetValue("MinVisualizacoes", 0).ToInt64();
+                double aprovacaoRelativa = resultado.GetValue("MediaAprovacaoRelativa", 0).ToDouble();
+
+                return (totalVisualizacoes, mediaGostei, maxVisualizacoes, minVisualizacoes, aprovacaoRelativa);
+            }
+            else
+            {
+                return (0, 0, 0, 0, 0);
+            }
         }
     }
 }
