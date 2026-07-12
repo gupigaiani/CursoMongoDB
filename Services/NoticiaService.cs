@@ -219,5 +219,31 @@ namespace CursoMongoDB.Services
             var indexModel = new CreateIndexModel<BsonDocument>(indexKeys, indexOptions);
             _colecao.Indexes.CreateOne(indexModel);
         }
+
+        public async Task AtualizarTextoPorUrlAsync(string url, string novoTexto)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                throw new ArgumentException("A URL não pode ser vazia.");
+
+            if (string.IsNullOrWhiteSpace(novoTexto))
+                throw new ArgumentException("O novo texto não pode ser vazio.");
+
+            var filtro = Builders<BsonDocument>.Filter.Eq("Url", url);
+            var atualizacao = Builders<BsonDocument>.Update.Set("Texto", novoTexto);
+            var resultado = await _colecao.UpdateOneAsync(filtro, atualizacao);
+
+            if (resultado.MatchedCount == 0)
+            {
+                Console.WriteLine($"Nenhum documento encontrado com URL: {url}");
+            }
+            else if (resultado.ModifiedCount > 0)
+            {
+                Console.WriteLine($"Texto atualizado com sucesso para a URL: {url}");
+            }
+            else
+            {
+                Console.WriteLine($"Documento encontrado, mas o texto já estava igual.");
+            }
+        }
     }
 }
