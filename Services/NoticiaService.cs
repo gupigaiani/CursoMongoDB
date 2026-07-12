@@ -421,5 +421,50 @@ namespace CursoMongoDB.Services
 
             return (tituloMaisAprovada, tituloMaisRejeitada);
         }
+
+        public async Task<(string? MaisAprovada, string? MaisRejeitada)> ObterNoticiasMaisRelevantesV2Async(DateTime dataInicio, DateTime dataFim)
+        {
+            var filtro = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Gte("DataPublicacao", dataInicio),
+                Builders<BsonDocument>.Filter.Lte("DataPublicacao", dataFim),
+                Builders<BsonDocument>.Filter.Gt("Visualizacoes", 50)
+            );
+
+            var noticias = await _colecao.Find(filtro).ToListAsync();
+
+            string maisAprovada = null, maisRejeitada = null;
+            double maiorAprovacao = double.MinValue, maiorRejeicao = double.MinValue;
+            double scoreAprovada = 0, scoreRejeitada = 0, hatedScoreAprovada = 0, hatedScoreRejeitada = 0;
+
+            foreach (var doc in noticias)
+            {
+                int vis = doc.GetValue("Visualizacoes", 0).ToInt32();
+                int gostei = doc.GetValue("Gostei", 0).ToInt32();
+                int naoGostei = doc.GetValue("NaoGostei", 0).ToInt32();
+                string titulo = doc.GetValue("Titulo", "").AsString;
+
+                double kpiAprovacao = (double)gostei / vis;
+                double kpiRejeicao = (double)naoGostei / vis;
+                double kpiSentimento = (double)(gostei - naoGostei) / vis;
+
+                if (kpiAprovacao > maiorAprovacao)
+                {
+                    maiorAprovacao = kpiAprovacao;
+                    scoreAprovada = kpiSentimento;
+                    hatedScoreAprovada = kpiRejeicao;
+                    maisAprovada = $"{titulo}\n  Loved Score: {kpiAprovacao:P1}\n  Hated Score: {kpiRejeicao:P1}\n  Índice de Sentimento: {kpiSentimento:F2}";
+                }
+
+                if (kpiRejeicao > maiorRejeicao)
+                {
+                    maiorRejeicao = kpiRejeicao;
+                    scoreRejeitada = kpiSentimento;
+                    hatedScoreRejeitada = kpiRejeicao;
+                    maisRejeitada = $"{titulo}\n  Loved Score: {kpiAprovacao:P1}\n  Hated Score: {kpiRejeicao:P1}\n  Índice de Sentimento: {kpiSentimento:F2}";
+                }
+            }
+
+            return (maisAprovada, maisRejeitada);
+        }
     }
 }
