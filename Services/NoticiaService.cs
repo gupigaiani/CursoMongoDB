@@ -466,5 +466,55 @@ namespace CursoMongoDB.Services
 
             return (maisAprovada, maisRejeitada);
         }
+
+        public async Task<(int totalGostei, int totalNaoGostei)> ObterReacoesPorFiltroV2Async(
+            DateTime? dataInicio = null,
+            DateTime? dataFim = null,
+            string? nomeJornalista = null,
+            string? tag = null)
+        {
+            var filtros = new List<FilterDefinition<BsonDocument>>();
+            filtros.Add(Builders<BsonDocument>.Filter.Gte("DataPublicacao", dataInicio.Value));
+            filtros.Add(Builders<BsonDocument>.Filter.Lte("DataPublicacao", dataFim.Value));
+            filtros.Add(
+                Builders<BsonDocument>.Filter.ElemMatch<BsonDocument>(
+                "Jornalistas",
+                Builders<BsonDocument>.Filter.Eq("Nome", nomeJornalista)
+                )
+                );
+            filtros.Add(Builders<BsonDocument>.Filter.AnyEq("Tags", tag));
+            var filtroFinal = filtros.Count > 0
+                        ? Builders<BsonDocument>.Filter.And(filtros)
+                        : Builders<BsonDocument>.Filter.Empty;
+
+            var filtroBson = filtroFinal.Render(
+                new MongoDB.Driver.RenderArgs<BsonDocument>(
+                    BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+                    BsonSerializer.SerializerRegistry
+                )
+            );
+            
+            var pipeline = new[]
+            {
+                new BsonDocument("$match", filtroBson), // filtroFinal pode ser um FilterDefinition<BsonDocument>
+                new BsonDocument("$group", new BsonDocument
+                    {
+                        { "_id", BsonNull.Value },
+                        { "TotalGostei", new BsonDocument("$sum", "$Gostei") },
+                        { "TotalNaoGostei", new BsonDocument("$sum", "$NaoGostei") }
+                    })
+            };
+
+            var resultado = await _colecao.Aggregate<BsonDocument>(pipeline).ToListAsync();
+            int totalGostei = 0, totalNaoGostei = 0;
+
+            if (resultado != null)
+            {
+                totalGostei = resultado[0].GetValue("TotalGostei", 0).ToInt32();
+                totalNaoGostei = resultado[0].GetValue("TotalNaoGostei", 0).ToInt32();
+            }
+
+            return (totalGostei, totalNaoGostei);
+        }
     }
 }
