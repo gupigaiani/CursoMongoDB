@@ -369,7 +369,7 @@ namespace CursoMongoDB.Services
                     Builders<BsonDocument>.Filter.Eq("Nome", nomeJornalista)
                 )
             );
-            
+
             var filtroFinal = filtros.Count > 0
                 ? Builders<BsonDocument>.Filter.And(filtros)
                 : Builders<BsonDocument>.Filter.Empty;
@@ -387,6 +387,39 @@ namespace CursoMongoDB.Services
             }
 
             return (totalGostei, totalNaoGostei);
+        }
+        public async Task<(string? maisAprovada, string? maisRejeitada)> ObterNoticiasMaisRelevantesAsync(DateTime dataInicio, DateTime dataFim)
+        {
+            var filtro = Builders<BsonDocument>.Filter.And(
+                    Builders<BsonDocument>.Filter.Gte("DataPublicacao", dataInicio),
+                    Builders<BsonDocument>.Filter.Lte("DataPublicacao", dataFim)
+                );
+            var projecao = Builders<BsonDocument>.Projection
+                .Include("Titulo")
+                .Include("Gostei")
+                .Include("NaoGostei");
+
+            var ordenacaoGostei = Builders<BsonDocument>.Sort.Descending("Gostei");
+            var ordenacaoNaoGostei = Builders<BsonDocument>.Sort.Descending("NaoGostei");
+
+            var maisGosteiDoc = await _colecao
+                .Find(filtro)
+                .Project(projecao)
+                .Sort(ordenacaoGostei)
+                .Limit(1)
+                .FirstOrDefaultAsync();
+
+            var maisNaoGosteiDoc = await _colecao
+                .Find(filtro)
+                .Project(projecao)
+                .Sort(ordenacaoNaoGostei)
+                .Limit(1)
+                .FirstOrDefaultAsync();
+
+            string? tituloMaisAprovada = maisGosteiDoc?.GetValue("Titulo", null)?.AsString;
+            string? tituloMaisRejeitada = maisNaoGosteiDoc?.GetValue("Titulo", null)?.AsString;
+
+            return (tituloMaisAprovada, tituloMaisRejeitada);
         }
     }
 }
