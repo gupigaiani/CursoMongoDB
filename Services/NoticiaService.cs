@@ -269,9 +269,34 @@ namespace CursoMongoDB.Services
 
             int totalComentarios = comentarios.Count;
             var updateTotal = Builders<BsonDocument>.Update.Set("TotalComentarios", totalComentarios);
-            
+
             await _colecao.UpdateOneAsync(filtro, updateTotal);
             Console.WriteLine($"Comentário adicionado com sucesso. Total agora: {totalComentarios}");
+        }
+
+        public async Task RemoverComentarioAsync(string url, string textoComentario)
+        {
+            var filter = Builders<BsonDocument>.Filter.Eq("Url", url);
+            var update = Builders<BsonDocument>.Update.PullFilter("Comentarios",
+                Builders<BsonDocument>.Filter.Eq("Comentario", textoComentario));
+
+            var resultado = await _colecao.UpdateOneAsync(filter, update);
+            
+            if (resultado.ModifiedCount > 0)
+            {
+                var noticiaAtualizada = await _colecao.Find(filter).FirstOrDefaultAsync();
+                if (noticiaAtualizada != null)
+                {
+                    var totalAtual = noticiaAtualizada["Comentarios"].AsBsonArray.Count;
+                    var updateTotal = Builders<BsonDocument>.Update.Set("TotalComentarios", totalAtual);
+                    await _colecao.UpdateOneAsync(filter, updateTotal);
+                    Console.WriteLine($"Comentário removido. Total atualizado: {totalAtual}");
+                }
+                else
+                {
+                    Console.WriteLine("Nenhum comentário foi removido. Verifique se o texto está correto.");
+                }
+            }
         }
     }
 }
