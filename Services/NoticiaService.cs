@@ -569,5 +569,48 @@ namespace CursoMongoDB.Services
                 return (0, 0, 0, 0, 0);
             }
         }
+        public async Task<Dictionary<string, long>> NoticiasPorDiaSemanaAsync(DateTime inicio, DateTime fim)
+        {
+            var filtro = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Gte("DataPublicacao", inicio),
+                Builders<BsonDocument>.Filter.Lt("DataPublicacao", fim)
+            );
+
+            var filtroBson = filtro.Render(
+               new MongoDB.Driver.RenderArgs<BsonDocument>(
+                   BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+                   BsonSerializer.SerializerRegistry
+               )
+            );
+
+            var pipeline = new[]
+            {
+                new BsonDocument("$match", filtroBson),
+                new BsonDocument("$addFields", new BsonDocument("DiaSemana", new BsonDocument("$dayOfWeek", "$DataPublicacao"))),
+                new BsonDocument("$group", new BsonDocument
+                {
+                    { "_id", "$DiaSemana" },
+                    { "Total", new BsonDocument("$sum", 1) }
+                }),
+                new BsonDocument("$sort", new BsonDocument("_id", 1))
+            };
+            
+            var resultado = await _colecao.Aggregate<BsonDocument>(pipeline).ToListAsync();
+
+            var dict = new Dictionary<string, long>();
+            // Este array nos ajudará a traduzir o número do dia para um nome em português.
+            string[] dias = { "Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado" };
+
+            foreach (var doc in resultado)
+            {
+                int diaNum = doc["_id"].ToInt32(); // MongoDB retorna 1 para Domingo...
+                                                   // Ajustamos para o índice 0 do nosso array (1-1=0)
+                string diaNome = dias[(diaNum - 1)];
+                long total = doc["Total"].ToInt64();
+                dict[diaNome] = total;
+            }
+
+            return dict;
+        }
     }
 }
