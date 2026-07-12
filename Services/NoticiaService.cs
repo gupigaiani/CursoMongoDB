@@ -594,7 +594,7 @@ namespace CursoMongoDB.Services
                 }),
                 new BsonDocument("$sort", new BsonDocument("_id", 1))
             };
-            
+
             var resultado = await _colecao.Aggregate<BsonDocument>(pipeline).ToListAsync();
 
             var dict = new Dictionary<string, long>();
@@ -611,6 +611,58 @@ namespace CursoMongoDB.Services
             }
 
             return dict;
+        }
+        public async Task<Dictionary<string, int>> ContarNoticiasPorMesAnoAsync(DateTime dataInicio, DateTime dataFim)
+        {
+            var filtro = Builders<BsonDocument>.Filter.And(
+                    Builders<BsonDocument>.Filter.Gte("DataPublicacao", dataInicio),
+                    Builders<BsonDocument>.Filter.Lte("DataPublicacao", dataFim)
+                );
+
+            // Converte o filtro para BsonDocument para usar no pipeline
+            var filtroBson = filtro.Render(
+                new MongoDB.Driver.RenderArgs<BsonDocument>(
+                    BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+                    BsonSerializer.SerializerRegistry
+                )
+            );
+
+            var pipeline = new[]
+            {
+                new BsonDocument("$match", filtroBson),
+                new BsonDocument("$group", new BsonDocument
+                {
+                    { "_id", new BsonDocument
+                        {
+                            { "Ano", new BsonDocument("$year", "$DataPublicacao") },
+                            { "Mes", new BsonDocument("$month", "$DataPublicacao") }
+                        }
+                    },
+                    { "Total", new BsonDocument("$sum", 1) }
+                }),
+                new BsonDocument("$sort", new BsonDocument
+                {
+                    { "_id.Ano", 1 },  // 1 para ordem ascendente
+                    { "_id.Mes", 1 }
+                })
+            };
+            
+            var resultado = await _colecao.Aggregate<BsonDocument>(pipeline).ToListAsync();
+
+            var contagemPorMesAno = new Dictionary<string, int>();
+            foreach (var doc in resultado)
+            {
+                var id = doc["_id"].AsBsonDocument;
+                int ano = id["Ano"].AsInt32;
+                int mes = id["Mes"].AsInt32;
+                int total = doc["Total"].AsInt32;
+
+                // Criamos uma chave formatada para fácil leitura, como "2024-07"
+                string chave = $"{ano}-{mes:D2}";
+                contagemPorMesAno[chave] = total;
+            }
+
+            return contagemPorMesAno;
         }
     }
 }
