@@ -744,5 +744,86 @@ namespace CursoMongoDB.Services
                 Console.WriteLine($"Ocorreu um erro ao tentar criar o índice: {ex.Message}");
             }
         }
+
+        public async Task<List<BsonDocument>> ListarNoticiasPorTagRecentes(string tag, DateTime dataInicio, DateTime dataFim)
+        {
+            var filtro = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.AnyEq("Tags", tag),
+                Builders<BsonDocument>.Filter.Gte("DataPublicacao", dataInicio),
+                Builders<BsonDocument>.Filter.Lte("DataPublicacao", dataFim)
+            );
+            var ordenacao = Builders<BsonDocument>.Sort.Descending("DataPublicacao");
+            return await _colecao.Find(filtro).Sort(ordenacao).Limit(10).ToListAsync();
+        }
+
+        public async Task<List<BsonDocument>> ListarNoticiasPorRelevancia(DateTime dataInicio, DateTime dataFim)
+        {
+            var filtro = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Gte("DataPublicacao", dataInicio),
+                Builders<BsonDocument>.Filter.Lte("DataPublicacao", dataFim)
+            );
+            var ordenacao = Builders<BsonDocument>.Sort.Descending("Visualizacoes");
+            return await _colecao.Find(filtro).Sort(ordenacao).Limit(10).ToListAsync();
+        }
+
+        public async Task<List<BsonDocument>> BuscarNoticiasPorPalavraChave(string palavraChave)
+        {
+            var filtro = Builders<BsonDocument>.Filter.Text(palavraChave,
+            new TextSearchOptions { CaseSensitive = false });
+            var ordenacao = Builders<BsonDocument>.Sort.Descending("DataPublicacao");
+            return await _colecao.Find(filtro).Sort(ordenacao).Limit(20).ToListAsync();
+        }
+
+        public async Task<List<BsonDocument>> ListarNoticiasPorJornalista(string nomeJornalista)
+        {
+            var filtro = Builders<BsonDocument>.Filter.Eq("Jornalistas.Nome", nomeJornalista);
+            var ordenacao = Builders<BsonDocument>.Sort.Descending("DataPublicacao");
+            return await _colecao.Find(filtro).Sort(ordenacao).Limit(10).ToListAsync();
+        }
+
+        public async Task<List<BsonDocument>> ListarNoticiasComAnexosPopulares(string tipoAnexo)
+        {
+            var filtro = Builders<BsonDocument>.Filter.ElemMatch("Anexos",
+                Builders<BsonDocument>.Filter.Eq("Tipo", tipoAnexo)
+            );
+            var ordenacao = Builders<BsonDocument>.Sort.Descending("Anexos.Cliques");
+            return await _colecao.Find(filtro).Sort(ordenacao).Limit(10).ToListAsync();
+        }
+
+        public async Task CriarIndicesListagensOrdenadasAsync()
+        {
+
+            var indices = new List<CreateIndexModel<BsonDocument>>
+            {
+
+                new CreateIndexModel<BsonDocument>(Builders<BsonDocument>.IndexKeys
+                    .Ascending("Tags")
+                    .Descending("DataPublicacao"),
+                new CreateIndexOptions { Name = "idx_Tags_DataPublicacao" }),
+
+                new CreateIndexModel<BsonDocument>(Builders<BsonDocument>.IndexKeys
+                    .Descending("DataPublicacao")
+                    .Descending("Visualizacoes"), 
+                new CreateIndexOptions { Name = "idx_DataPub_Visualizacoes" }),
+
+                new CreateIndexModel<BsonDocument>(Builders<BsonDocument>.IndexKeys
+                    .Text("Titulo")
+                    .Text("Texto"),
+                new CreateIndexOptions { Name = "idx_text_Titulo_Texto" }),
+
+                new CreateIndexModel<BsonDocument>(Builders<BsonDocument>.IndexKeys
+                    .Ascending("Jornalistas.Nome")
+                    .Descending("DataPublicacao"),
+                new CreateIndexOptions { Name = "idx_Jornalista_DataPub" }),
+
+                new CreateIndexModel<BsonDocument>(Builders<BsonDocument>.IndexKeys
+                    .Ascending("Anexos.Tipo")
+                    .Descending("Anexos.Cliques"),
+                new CreateIndexOptions { Name = "idx_Anexos_Tipo_Cliques" })
+
+            };
+            await _colecao.Indexes.CreateManyAsync(indices);
+            Console.WriteLine("Índices para listagens ordenadas criados/verificados com sucesso!");
+        }
     }
 }
