@@ -728,5 +728,21 @@ namespace CursoMongoDB.Services
             var resultado = await _colecao.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
             return resultado;
         }
+
+        public async Task CriarIndiceDataPublicacaoAsync()
+        {
+            var indexKeys = Builders<BsonDocument>.IndexKeys.Ascending("DataPublicacao");
+            var indexOptions = new CreateIndexOptions { Name = "IndiceDataPublicacao" };
+            var indexModel = new CreateIndexModel<BsonDocument>(indexKeys, indexOptions);
+            try
+            {
+                await _colecao.Indexes.CreateOneAsync(indexModel);
+                Console.WriteLine("Índice 'IndiceDataPublicacao' criado com sucesso ou verificado como já existente.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ocorreu um erro ao tentar criar o índice: {ex.Message}");
+            }
+        }
     }
 }
