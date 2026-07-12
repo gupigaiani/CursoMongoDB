@@ -803,7 +803,7 @@ namespace CursoMongoDB.Services
 
                 new CreateIndexModel<BsonDocument>(Builders<BsonDocument>.IndexKeys
                     .Descending("DataPublicacao")
-                    .Descending("Visualizacoes"), 
+                    .Descending("Visualizacoes"),
                 new CreateIndexOptions { Name = "idx_DataPub_Visualizacoes" }),
 
                 new CreateIndexModel<BsonDocument>(Builders<BsonDocument>.IndexKeys
@@ -824,6 +824,19 @@ namespace CursoMongoDB.Services
             };
             await _colecao.Indexes.CreateManyAsync(indices);
             Console.WriteLine("Índices para listagens ordenadas criados/verificados com sucesso!");
+        }
+
+        public async Task<List<BsonDocument>> ListarNoticiasMaisLidasPorTagAsync(string tag)
+        {
+            var filtro = Builders<BsonDocument>.Filter.AnyEq("Tags", tag);
+
+            var ordenacao = Builders<BsonDocument>.Sort.Descending("Visualizacoes");
+
+            return await _colecao
+                .Find(filtro)
+                .Sort(ordenacao)
+                .Limit(5)
+                .ToListAsync();
         }
     }
 }
