@@ -330,5 +330,27 @@ namespace CursoMongoDB.Services
             await _colecao.UpdateOneAsync(filtro, atualizacao);
             Console.WriteLine("Estatísticas atualizadas com sucesso.");
         }
+
+        public async Task<(int totalGostei, int totalNaoGostei)> ObterReacoesNoPeriodoAsync(DateTime dataInicio, DateTime dataFim)
+        {
+            var filtro = Builders<BsonDocument>.Filter.And(
+                    Builders<BsonDocument>.Filter.Gte("DataPublicacao", dataInicio),
+                    Builders<BsonDocument>.Filter.Lte("DataPublicacao", dataFim)
+                );
+
+            var projeção = Builders<BsonDocument>.Projection.Include("Gostei").Include("NaoGostei");
+            var documentos = await _colecao.Find(filtro).Project(projeção).ToListAsync();
+
+            var totalGostei = 0;
+            var totalNaoGostei = 0;
+            
+            foreach (var doc in documentos)
+            {
+                totalGostei += doc.GetValue("Gostei", 0).AsInt32;
+                totalNaoGostei += doc.GetValue("NaoGostei", 0).AsInt32;
+            }
+
+            return (totalGostei, totalNaoGostei);
+        }
     }
 }
