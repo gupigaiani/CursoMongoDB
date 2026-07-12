@@ -245,5 +245,33 @@ namespace CursoMongoDB.Services
                 Console.WriteLine($"Documento encontrado, mas o texto já estava igual.");
             }
         }
+
+        public async Task AdicionarComentarioAsync(string url, ComentarioClass novoComentario)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                throw new ArgumentException("A URL não pode ser vazia.");
+
+            if (novoComentario == null)
+                throw new ArgumentNullException(nameof(novoComentario));
+
+            var filtro = Builders<BsonDocument>.Filter.Eq("Url", url);
+            var updateComentario = Builders<BsonDocument>.Update.Push("Comentarios", novoComentario.ToBsonDocument());
+            var resultado1 = await _colecao.UpdateOneAsync(filtro, updateComentario);
+
+            if (resultado1.MatchedCount == 0)
+            {
+                Console.WriteLine($"Nenhuma notícia encontrada com a URL: {url}");
+                return;
+            }
+
+            var noticiaAtualizada = await _colecao.Find(filtro).FirstOrDefaultAsync();
+            var comentarios = noticiaAtualizada["Comentarios"].AsBsonArray;
+
+            int totalComentarios = comentarios.Count;
+            var updateTotal = Builders<BsonDocument>.Update.Set("TotalComentarios", totalComentarios);
+            
+            await _colecao.UpdateOneAsync(filtro, updateTotal);
+            Console.WriteLine($"Comentário adicionado com sucesso. Total agora: {totalComentarios}");
+        }
     }
 }
