@@ -646,7 +646,7 @@ namespace CursoMongoDB.Services
                     { "_id.Mes", 1 }
                 })
             };
-            
+
             var resultado = await _colecao.Aggregate<BsonDocument>(pipeline).ToListAsync();
 
             var contagemPorMesAno = new Dictionary<string, int>();
@@ -663,6 +663,70 @@ namespace CursoMongoDB.Services
             }
 
             return contagemPorMesAno;
+        }
+
+        public async Task<BsonDocument> GerarDashboardAnaliseTagsAsync(DateTime dataInicio, DateTime dataFim)
+        {
+            var filtro = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Gte("DataPublicacao", dataInicio),
+                Builders<BsonDocument>.Filter.Lte("DataPublicacao", dataFim)
+            );
+
+            var filtroBson = filtro.Render(
+                new MongoDB.Driver.RenderArgs<BsonDocument>(
+                    BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+                    BsonSerializer.SerializerRegistry
+                )
+            );
+
+            var pipeline = new BsonDocument[]
+            {
+                // Estágio 0: $match - Filtra os documentos ANTES de tudo. Essencial!
+                new BsonDocument("$match", filtroBson),
+                new BsonDocument("$unwind", "$Tags"),
+                new BsonDocument("$facet", new BsonDocument
+                {
+                    { "TopTagsPorUso", new BsonArray
+                        {
+                            new BsonDocument("$group", new BsonDocument { { "_id", "$Tags" }, { "contagem", new BsonDocument("$sum", 1) } }),
+                            new BsonDocument("$sort", new BsonDocument("contagem", -1)),
+                            new BsonDocument("$limit", 5),
+                            new BsonDocument("$project", new BsonDocument {
+                                {"_id", 0},
+                                {"Tag", "$_id"},
+                                {"NumeroDeNoticias", "$contagem"}
+                            })
+                        }
+                    },
+                    { "TopTagsPorGostei", new BsonArray
+                        {
+                            new BsonDocument("$group", new BsonDocument { { "_id", "$Tags" }, { "mediaGostei", new BsonDocument("$avg", "$Gostei") } }),
+                            new BsonDocument("$sort", new BsonDocument("mediaGostei", -1)),
+                            new BsonDocument("$limit", 5),
+                            new BsonDocument("$project", new BsonDocument {
+                                {"_id", 0},
+                                {"Tag", "$_id"},
+                                {"MediaDeGostei", "$mediaGostei"}
+                            })
+                        }
+                    },
+                    { "TopTagsPorComentarios", new BsonArray
+                        {
+                            new BsonDocument("$group", new BsonDocument { { "_id", "$Tags" }, { "mediaComentarios", new BsonDocument("$avg", "$TotalComentarios") } }),
+                            new BsonDocument("$sort", new BsonDocument("mediaComentarios", -1)),
+                            new BsonDocument("$limit", 5),
+                            new BsonDocument("$project", new BsonDocument {
+                                {"_id", 0},
+                                {"Tag", "$_id"},
+                                {"MediaDeComentarios", "$mediaComentarios"}
+                            })
+                        }
+                    }
+                })
+            };
+
+            var resultado = await _colecao.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+            return resultado;
         }
     }
 }
